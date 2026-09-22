@@ -1,0 +1,68 @@
+name: build-and-push
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: "Pin @deepseek-ai/dsh version (blank = latest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  # Single source of truth for the pin. Change it here, not in the Dockerfile.
+  DSH_VERSION: latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Resolve version pin
+        id: ver
+        env:
+          INPUT: ${{ github.event.inputs.dsh_version }}
+        run: echo "value=${INPUT:-${DSH_VERSION}}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # If the pinned dsh version has no linux/arm64 prebuilt native
+          # binary, drop arm64 here and nodeSelector amd64 in the manifest.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DSH_VERSION=${{ steps.ver.outputs.value }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
