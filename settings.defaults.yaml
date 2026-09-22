@@ -1,0 +1,26 @@
+# Baked-in defaults for the harness: provider + model + default selection.
+# Seeded into ~/.dsh/settings.yaml on first boot; the UI's Models page and the
+# file's hot-reload watcher take over from there.
+# The API key is NOT here — apiKeyEnv is a reference only. In this
+# deployment the key resolves from $DSH_HOME/.credentials.yaml (written by
+# the Models page), NOT from the manifest env. Scraping the PVC destroys
+# it: re-enter it once, or supply LLAMASWAP_API_KEY as env (see
+# dsh.yaml.diff for the commented secret block).
+llm-pi-ai:
+  providers:
+    llamaswap:
+      displayName: llamaswap
+      apiKeyEnv: LLAMASWAP_API_KEY
+      api: openai-completions
+      baseURL: https://llamaswap.shaytech.net/v1
+      models:
+        - id: qwen3-8-flash-next-nvfp4
+          name: Qwen3.8 Flash Next Nvfp4
+          # Must be declared explicitly: without it, read_image's
+          # input-modalities gate rejects every image.
+          input:
+            - text
+            - image
+agent-default-model:
+  provider: llamaswap
+  model: qwen3-8-flash-next-nvfp4
