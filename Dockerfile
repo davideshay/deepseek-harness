@@ -13,6 +13,16 @@ RUN npm install -g "@deepseek-ai/dsh@${DSH_VERSION}" \
  && npm cache clean --force \
  && dsh --version
 
+# Preserve the base image's home dotfiles so the /home/node mount can
+# restore them onto a fresh volume (the mount hides the image's /home/node).
+RUN cp -a /home/node/. /etc/skel/
+
+# Bake in the model/endpoint defaults so a fresh volume needs no UI
+# reconfiguration. The API key is not in the image — it lives in
+# $DSH_HOME/.credentials.yaml (Models page) or, if you prefer, as an
+# env var from a Secret (see dsh.yaml.diff).
+COPY --chmod=644 settings.defaults.yaml /usr/local/share/dsh/settings.defaults.yaml
+
 # Upstream #5829 workaround: see patch-ui-settings.mjs for the rationale.
 # Fails the build if the pattern is absent, so a dsh upgrade that changes or
 # fixes this code breaks the build instead of silently shipping a regression.
