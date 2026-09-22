@@ -8,6 +8,22 @@ set -eu
 # the file if it already exists.
 umask 077
 
+# Fresh volume: seed the baked-in model/endpoint defaults exactly once.
+# Once the file exists, the user's (or the Models UI's) copy is
+# authoritative — dsh-settings-file hot-reloads it.
+if [ ! -f "$DSH_HOME/settings.yaml" ] && [ -f /usr/local/share/dsh/settings.defaults.yaml ]; then
+  cp /usr/local/share/dsh/settings.defaults.yaml "$DSH_HOME/settings.yaml"
+  echo "entrypoint: seeded settings.yaml from baked-in defaults"
+fi
+
+# If the PVC subPath is mounted at $HOME, it hides the image's dotfiles;
+# restore them only where missing. Harmless no-op when $HOME is not a
+# mount (the files already exist).
+if [ -d /etc/skel ]; then
+  cp -Rn /etc/skel/. "$HOME/" 2>/dev/null || true
+fi
+
+
 if [ -f "${DSH_HOME}/.credentials.yaml" ]; then
   chmod 600 "${DSH_HOME}/.credentials.yaml"
 fi
